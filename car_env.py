@@ -40,28 +40,36 @@ class RacingEnv(gym.Env):
         self.time_steps = 0
         self.prev_x, self.prev_y = self.car.x, self.car.y
 
-        # --- 16 HAND-MAPPED STRUCTURAL CHECKPOINTS ---
+        # --- 8 CHECKPOINTS ON RACING LINE (CAREFULLY POSITIONED) ---
         # Format: [[(x1, y1), (x2, y2)]]
+        # Tracing: Start (bottom) → Left climb → Top straightaway → Right descent → Hairpin → Back to start
         self.checkpoints = [
-            [(530, 500), (530, 700)],     # 0: Start/Finish (Checkered Flag)
-            [(300, 600), (300, 750)],     # 1: Bottom straight entry to T1
-            [(100, 630), (250, 750)],     # 2: Turn 1 Apex (Bottom Left corner)
-            [(160, 480), (320, 550)],     # 3: Exiting T1 into lower chicane
-            [(130, 400), (300, 400)],     # 4: Lower Left S-Curve entry
-            [(80,  250), (260, 250)],     # 5: Upper Left S-Curve apex
-            [(250, 210), (400, 310)],     # 6: Mid-Field switchback entry
-            [(450, 320), (550, 450)],     # 7: Mid-Field hairpin apex
-            [(550, 180), (700, 250)],     # 8: Exiting chicanes to Top Straight
-            [(750, 0),   (750, 260)],     # 9: Top Straightaway mid-point
-            [(1050, 100), (1200, 260)],   # 10: Top-Right entry to sweeper
-            [(1250, 250), (1450, 350)],   # 11: Right Sweeper Apex
-            [(1150, 450), (1450, 450)],   # 12: Right Hairpin entry
-            [(850, 550), (1050, 680)],    # 13: Mid-Right return lane
-            [(1000, 650), (1150, 780)],   # 14: Bottom-Right straight entry
-            [(1200, 520), (1400, 620)],   # 15: Final hook turn before finish
+            # 0: START/FINISH LINE (bottom center)
+            [(480, 610), (580, 610)],
+            
+            # 1: LEFT SIDE ENTRY (car goes left from start)
+            [(380, 560), (350, 520)],
+            
+            # 2: LEFT SIDE MIDDLE (car climbing left side)
+            [(280, 380), (260, 320)],
+            
+            # 3: LEFT TOP TRANSITION (top of left side)
+            [(350, 160), (450, 140)],
+            
+            # 4: TOP STRAIGHTAWAY (center of top section)
+            [(750, 100), (850, 100)],
+            
+            # 5: RIGHT TOP TRANSITION (exiting top, going down right)
+            [(1100, 150), (1150, 200)],
+            
+            # 6: RIGHT SIDE MIDDLE (car descending right side)
+            [(1180, 400), (1200, 480)],
+            
+            # 7: HAIRPIN RETURN (hairpin turn back to start)
+            [(850, 640), (650, 650)],
         ]
         
-        self.next_checkpoint_idx = 1 # Heading toward Gate 1 first
+        self.next_checkpoint_idx = 1 # Start by heading toward Gate 1 after leaving start/finish
 
         # Generate initial screen observations
         self.screen.blit(TRACK, (0, 0))

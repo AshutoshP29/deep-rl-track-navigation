@@ -16,7 +16,10 @@ TRACK = pygame.transform.scale(TRACK, (WIDTH, HEIGHT))
 
 class PlayerCar:
     def __init__(self):
-        self.original_img = pygame.image.load("car.png").convert_alpha()
+        self.original_img = pygame.image.load("car.png")
+
+        if pygame.display.get_init():
+            self.original_img = self.original_img.convert_alpha()
         # Scaled for the larger 1500x800 resolution
         self.img = pygame.transform.scale(self.original_img, (50, 60))
         self.reset()
