@@ -58,26 +58,29 @@ class PlayerCar:
         else:
             self.is_alive = False # Reset if off-screen
 
-    def update(self):
-        keys = pygame.key.get_pressed()
-        moved = False
+    def update(self, action=None):
+        if action is None:
+            keys = pygame.key.get_pressed()
+            moved = False
 
-        if self.speed != 0:
-            if keys[pygame.K_LEFT]:
-                self.angle += self.rotation_speed
-            if keys[pygame.K_RIGHT]:
-                self.angle -= self.rotation_speed
+            if self.speed != 0:
+                if keys[pygame.K_LEFT]:
+                    self.angle += self.rotation_speed
+                if keys[pygame.K_RIGHT]:
+                    self.angle -= self.rotation_speed
 
-        if keys[pygame.K_UP]:
-            moved = True
-            self.speed = min(self.speed + self.acceleration, self.max_speed)
-        if keys[pygame.K_DOWN]:
-            moved = True
-            self.speed = max(self.speed - self.acceleration, -self.max_speed/2)
+            if keys[pygame.K_UP]:
+                moved = True
+                self.speed = min(self.speed + self.acceleration, self.max_speed)
+            if keys[pygame.K_DOWN]:
+                moved = True
+                self.speed = max(self.speed - self.acceleration, -self.max_speed/2)
 
-        if not moved:
-            self.speed *= self.friction
-            if abs(self.speed) < 0.1: self.speed = 0
+            if not moved:
+                self.speed *= self.friction
+                if abs(self.speed) < 0.1: self.speed = 0
+        else:
+            pass
 
         self.drive()
 
