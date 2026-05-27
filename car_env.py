@@ -21,7 +21,7 @@ class RacingEnv(gym.Env):
         self.render_mode = render_mode
 
         self.action_space = spaces.Discrete(5)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(5,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(7,), dtype=np.float32)
 
         if self.render_mode == "human":
             pygame.init()
@@ -39,34 +39,41 @@ class RacingEnv(gym.Env):
         self.car.reset()
         self.time_steps = 0
         self.prev_x, self.prev_y = self.car.x, self.car.y
+   
+        self.checkpoints = [           
+            [(436, 764), (436, 850)],
+        
+            [(216, 750), (143, 800)],
+            
+            [(208, 633), (298, 688)],
+            
+            [(264, 537), (335, 597)],
 
-        # --- 8 CHECKPOINTS ON RACING LINE (CAREFULLY POSITIONED) ---
-        # Format: [[(x1, y1), (x2, y2)]]
-        # Tracing: Start (bottom) → Left climb → Top straightaway → Right descent → Hairpin → Back to start
-        self.checkpoints = [
-            # 0: START/FINISH LINE (bottom center)
-            [(480, 610), (580, 610)],
-            
-            # 1: LEFT SIDE ENTRY (car goes left from start)
-            [(380, 560), (350, 520)],
-            
-            # 2: LEFT SIDE MIDDLE (car climbing left side)
-            [(280, 380), (260, 320)],
-            
-            # 3: LEFT TOP TRANSITION (top of left side)
-            [(350, 160), (450, 140)],
-            
-            # 4: TOP STRAIGHTAWAY (center of top section)
-            [(750, 100), (850, 100)],
-            
-            # 5: RIGHT TOP TRANSITION (exiting top, going down right)
-            [(1100, 150), (1150, 200)],
-            
-            # 6: RIGHT SIDE MIDDLE (car descending right side)
-            [(1180, 400), (1200, 480)],
-            
-            # 7: HAIRPIN RETURN (hairpin turn back to start)
-            [(850, 640), (650, 650)],
+            [(460, 507), (460, 590)],
+
+            [(610, 504), (702, 514)],
+
+            [(520, 379), (461, 440)],
+
+            [(448, 300), (377, 256)],
+
+            [(793, 189), (794, 270)],
+
+            [(1163, 287), (1249, 265)],
+
+            [(1107, 467), (1008, 390)],
+
+            [(1108, 496), (1045, 566)],
+
+            [(1246, 627), (1297, 542)],
+
+            [(1249, 656), (1339, 727)],
+
+            [(1117, 669), (1117, 754)],
+
+            [(900, 750), (991, 767)],
+
+            [(662, 764), (662, 850)]
         ]
         
         self.next_checkpoint_idx = 1 # Start by heading toward Gate 1 after leaving start/finish
@@ -136,7 +143,7 @@ class RacingEnv(gym.Env):
 
             if check_intersect(p1, p2, p3, p4):
                 # Scale reward down slightly since checkpoints are densely packed now
-                reward += 5.0 
+                reward += 10.0 
                 print(f"Passed Gate {self.next_checkpoint_idx}/{len(self.checkpoints)}!")
                 self.next_checkpoint_idx = (self.next_checkpoint_idx + 1) % len(self.checkpoints)
 

@@ -3,7 +3,7 @@ import math
 
 # --- Configuration & Setup ---
 pygame.init()
-WIDTH, HEIGHT = 1500, 800
+WIDTH, HEIGHT = 1491, 1053
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("2D Top-Down Racer - RL Environment")
 clock = pygame.time.Clock()
@@ -20,8 +20,8 @@ class PlayerCar:
 
         if pygame.display.get_init():
             self.original_img = self.original_img.convert_alpha()
-        # Scaled for the larger 1500x800 resolution
-        self.img = pygame.transform.scale(self.original_img, (50, 60))
+        # Scaled for the larger 1491x1053 resolution
+        self.img = pygame.transform.scale(self.original_img, (60, 70))
         self.reset()
         
         # Physics constants
@@ -32,7 +32,7 @@ class PlayerCar:
 
     def reset(self):
         # Starting position on the START line
-        self.x, self.y = 500, 610 
+        self.x, self.y = 520, 805
         self.angle = 90 # Facing Right (adjust to 90 or 270 depending on your car sprite)
         self.speed = 0
         self.is_alive = True
@@ -89,7 +89,7 @@ class PlayerCar:
 
     def get_data(self, screen):
         # The AI's 5 Lidar sensors
-        angles = [-90, -45, 0, 45, 90]
+        angles = [-90, -60, -30, 0, 30, 60, 90]
         distances = []
         
         # Center of the car
@@ -117,7 +117,7 @@ class PlayerCar:
             distances.append(length / 250.0)
             
             # Visualization
-            pygame.draw.line(screen, (255, 0, 0), (start_x, start_y), (check_x, check_y), 1)
+            pygame.draw.line(screen, (205, 0, 0), (start_x, start_y), (check_x, check_y), 1)
             pygame.draw.circle(screen, (255, 0, 0), (check_x, check_y), 3)
         
         return distances
@@ -128,35 +128,36 @@ class PlayerCar:
         rect = rotated_image.get_rect(center=(self.x, self.y))
         win.blit(rotated_image, rect.topleft)
 
-# --- Main Loop ---
-car = PlayerCar()
-running = True
+if __name__ == "__main__":
+    # --- Main Loop ---
+    car = PlayerCar()
+    running = True
 
-while running:
-    clock.tick(60)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    while running:
+        clock.tick(60)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-    # 1. Logic
-    car.update()
-    
-    # 2. Render Background
-    screen.blit(TRACK, (0, 0))
-    
-    # 3. Collision & Sensor Data
-    # IMPORTANT: Always check collision against the screen AFTER blitting the track
-    car.check_collision(screen) 
-    
-    if not car.is_alive:
-        car.reset()
+        # 1. Logic
+        car.update()
+        
+        # 2. Render Background
+        screen.blit(TRACK, (0, 0))
+        
+        # 3. Collision & Sensor Data
+        # IMPORTANT: Always check collision against the screen AFTER blitting the track
+        car.check_collision(screen) 
+        
+        if not car.is_alive:
+            car.reset()
 
-    # Get data for the AI (Observation Space)
-    sensors = car.get_data(screen) 
-    
-    # 4. Final Draw
-    car.draw(screen)
-    pygame.display.flip()
+        # Get data for the AI (Observation Space)
+        sensors = car.get_data(screen) 
+        
+        # 4. Final Draw
+        car.draw(screen)
+        pygame.display.flip()
 
-pygame.quit()
+    pygame.quit()
