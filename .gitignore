@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Training outputs
+models/
+logs/
+*.zip
