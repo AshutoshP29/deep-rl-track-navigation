@@ -204,14 +204,6 @@ tensorboard --logdir logs/tensorboard
 
 ## Future Improvements
 
-* ✅ ~~Faster training using vectorised environments~~
-* ✅ ~~Improved reward shaping~~
-* ✅ ~~SAC with continuous steering and throttle~~
-* ✅ ~~Centerline-progress reward with an annealed lateral-offset penalty (curriculum)~~
-* ✅ ~~Grip-limited physics so the agent can learn racing lines~~
-* ✅ ~~Combined steer + throttle actions for PPO~~
-* ✅ ~~Randomised start positions (SAC)~~
-* ✅ ~~Lap timing and performance metrics~~
 * Track randomisation and multiple racing circuits
 * Camera-based observations using CNN policies
 * Grip-limited physics for PPO too, for a like-for-like algorithm comparison
