@@ -15,7 +15,7 @@ LOG_DIR = HERE / "logs"
 
 def main():
     parser = argparse.ArgumentParser(description="Train the PPO racing agent.")
-    parser.add_argument("--timesteps", type=int, default=1_000_000)
+    parser.add_argument("--timesteps", type=int, default=1_500_000)
     parser.add_argument("--n-envs", type=int, default=8, help="Parallel environments")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
@@ -39,6 +39,7 @@ def main():
         ent_coef=0.01,
         policy_kwargs={"net_arch": [128, 128]},
         tensorboard_log=tensorboard_log,
+        device="cpu",  # A small MLP policy trains faster on CPU than GPU under PPO
         seed=args.seed,
         verbose=1,
     )

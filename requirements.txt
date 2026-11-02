@@ -3,4 +3,5 @@ gymnasium==1.2.3
 pygame-ce==2.5.7
 stable-baselines3==2.8.0
 torch==2.12.0
+pillow==12.2.0  # GIF recording in evaluate.py --gif
 # Optional: pip install tensorboard  (train.py logs to it automatically if installed)

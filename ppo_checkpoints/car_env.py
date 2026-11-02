@@ -31,14 +31,9 @@ GATES = (
 FINISH_GATE = 0
 FIRST_TARGET_GATE = 1
 
-# Actions -> (steer, throttle)
-ACTIONS = (
-    (1, 0),   # 0: steer left
-    (-1, 0),  # 1: steer right
-    (0, 1),   # 2: accelerate
-    (0, -1),  # 3: brake / reverse
-    (0, 0),   # 4: coast
-)
+# Actions -> (steer, throttle). Every combination, so the car can turn while accelerating or braking.
+# steer: +1 left, -1 right. throttle: +1 accelerate, -1 brake/reverse, 0 coast.
+ACTIONS = tuple((steer, throttle) for steer in (1, 0, -1) for throttle in (1, 0, -1))
 
 MAX_STEPS = 3000
 STALL_STEPS = 300  # Truncate if no gate is passed for this many steps
@@ -72,10 +67,11 @@ class RacingEnv(gym.Env):
         8-9  sin, cos of the angle between the car's heading and the next gate's midpoint
     """
 
-    metadata = {"render_modes": ["human"], "render_fps": 60}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
     def __init__(self, render_mode=None):
         super().__init__()
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
         self.action_space = spaces.Discrete(len(ACTIONS))
@@ -92,6 +88,8 @@ class RacingEnv(gym.Env):
             pygame.display.set_caption("2D Top-Down Racer - PPO Agent")
             self.clock = pygame.time.Clock()
             self.track = self.track.convert()
+        elif self.render_mode == "rgb_array":
+            self.screen = pygame.Surface((WIDTH, HEIGHT))
 
         self.car = PlayerCar()
 
@@ -104,6 +102,9 @@ class RacingEnv(gym.Env):
         self.next_gate = FIRST_TARGET_GATE
         self.gates_passed = 0
         self.laps = 0
+        self.lap_times = []  # Steps per completed lap. The first lap includes the standing start.
+        self.lap_start_step = 0
+        self.distance = 0.0
 
         self.sensors = self.car.sense(self.road)
         if self.render_mode == "human":
@@ -118,6 +119,7 @@ class RacingEnv(gym.Env):
         self.car.step_physics(steer, throttle)
         self.steps += 1
         self.steps_since_gate += 1
+        self.distance += abs(self.car.speed)
 
         reward = -TIME_PENALTY
         terminated = False
@@ -135,6 +137,8 @@ class RacingEnv(gym.Env):
                 self.steps_since_gate = 0
                 if self.next_gate == FINISH_GATE:
                     self.laps += 1
+                    self.lap_times.append(self.steps - self.lap_start_step)
+                    self.lap_start_step = self.steps
                     reward += LAP_BONUS
                 self.next_gate = (self.next_gate + 1) % len(GATES)
 
@@ -163,15 +167,23 @@ class RacingEnv(gym.Env):
         return obs
 
     def _info(self):
-        return {"gates_passed": self.gates_passed, "laps": self.laps, "next_gate": self.next_gate}
+        return {
+            "gates_passed": self.gates_passed,
+            "laps": self.laps,
+            "lap_times": list(self.lap_times),
+            "next_gate": self.next_gate,
+            "steps": self.steps,
+            "distance": self.distance,
+        }
 
     def render(self):
         if self.screen is None:
-            return
+            return None
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.window_closed = True
+        if self.render_mode == "human":
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.window_closed = True
 
         self.screen.blit(self.track, (0, 0))
         # The next targeted gate draws green, others blue
@@ -180,13 +192,17 @@ class RacingEnv(gym.Env):
             pygame.draw.line(self.screen, color, gate[0], gate[1], 3)
         self.car.draw_sensors(self.screen, self.sensors)
         self.car.draw(self.screen)
+
+        if self.render_mode == "rgb_array":
+            return pygame.surfarray.array3d(self.screen).transpose(1, 0, 2)
         pygame.display.flip()
         self.clock.tick(self.metadata["render_fps"])
+        return None
 
     def close(self):
-        if self.screen is not None:
+        if self.render_mode == "human" and self.screen is not None:
             pygame.quit()
-            self.screen = None
+        self.screen = None
 
 
 if __name__ == "__main__":
