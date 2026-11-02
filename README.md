@@ -2,32 +2,57 @@
 
 ## Overview
 
-RL Car Agent is a custom Reinforcement Learning project where an autonomous vehicle learns to navigate a 2D racing circuit. The environment is built using Gymnasium and Pygame, featuring vehicle dynamics, LiDAR-style sensors, road-mask collision detection, and a checkpoint-based reward system.
-
-The agent learns entirely through interaction with the environment, receiving rewards for making progress toward checkpoints and completing laps, while avoiding leaving the track.
+RL Car Agent is a custom Reinforcement Learning project where an autonomous car learns to drive a 2D top-down racing circuit. The environments are built with Gymnasium and Pygame and include vehicle physics, LiDAR-style sensors and road-mask collision detection. The agents learn purely from interaction, with no human driving data.
 
 The project contains two approaches, each in its own folder:
 
-| Folder | Status | Approach |
-| ------ | ------ | -------- |
-| `ppo_checkpoints/` | ✅ Working | PPO, 5 discrete actions, checkpoint-gate reward |
-| `sac_centerline/` | 🚧 Planned | SAC, continuous steering/throttle, centerline-progress reward, grip-limited physics |
+| Folder | Algorithm | Actions | Reward | Physics |
+| ------ | --------- | ------- | ------ | ------- |
+| [`ppo_checkpoints/`](ppo_checkpoints/README.md) | PPO | 9 discrete (steer × throttle) | Progress toward 17 checkpoint gates | Simple arcade, max speed 6 |
+| [`sac_centerline/`](sac_centerline/README.md) | SAC | Continuous steer + throttle | Progress along the track centerline, offset-penalty curriculum | Grip-limited, max speed 9 |
+
+---
+
+## Results
+
+| PPO (9 actions), flying lap | SAC, flying lap |
+| :---: | :---: |
+| ![PPO lap](assets/ppo_lap.gif) | ![SAC lap](assets/sac_lap.gif) |
+
+The yellow trail is the line the car drove on that lap. PPO's line stays close to the middle of the road. SAC's uses more of the width, swinging out before corners and cutting toward the inside in the hairpins, because its physics punish turning tightly at speed.
+
+All numbers are from one deterministic 3000-step episode (50 simulated seconds) from the start line, unless noted.
+
+| Agent | Training | Best flying lap | Avg speed (px/step) | Laps | Crashes |
+| ----- | -------- | --------------- | ------------------- | ---- | ------- |
+| PPO, 5 single actions (earlier version) | 1M steps, CPU | 10.52 s | 5.51 | 4 | none |
+| PPO, 9 combined actions | 1.5M steps, CPU | 10.17 s | 5.88 | 4 | none |
+| Scripted centerline follower (SAC physics, reference) | none | 11.78 s | 5.20 | 4 | none |
+| **SAC, grip-limited** | 500k steps, GPU | **9.63 s** | **6.21** | **5** | **0 / 50 random starts** |
+
+* **Combined actions helped PPO.** Turning while accelerating or braking cut 0.35 s off the lap. Its average speed is 98% of the car's top speed of 6.
+* **SAC is fastest despite stricter physics.** It has to brake hard for the hairpins, but it can reach 9 px/step on the straights. Its average of 6.21 is above PPO's top speed. It is also 2.15 s quicker than a scripted controller that follows the centerline at the grip limit, which shows the gain from choosing its own line.
+* **Curriculum.** SAC's evaluation lap went from 12.50 s at 100k steps, while the offset penalty still held it near the centerline, to 10.40 s at 250k when the penalty reached 0, and 9.60 s by 440k.
+* **Robustness.** From 50 random start points, the final SAC model completed 5 laps every time with no crashes. The highest-scoring evaluation checkpoint (`best_model.zip`, 9.60 s from the start line) crashed in 4 of 50 random starts, all just after spawning. So `sac_centerline/evaluate.py` uses the final model by default.
+
+PPO and SAC drive different car physics here, so the table compares complete solutions, not the algorithms alone.
 
 ---
 
 ## Features
 
-* Custom Gymnasium-compatible racing environment
-* PPO-based reinforcement learning agent
-* 2D top-down racing simulation
-* 7 LiDAR-style distance sensors (vectorised with NumPy)
-* Physics-based vehicle movement
-* Checkpoint progression system with lap counting
-* Dense, exploit-resistant reward shaping
-* Road-mask collision detection with a multi-point hitbox
-* Parallel environments for fast training
-* Automatic best-model and checkpoint saving
-* Real-time visualization using Pygame
+* Two custom Gymnasium racing environments sharing one track, road mask and sensor model
+* PPO (discrete) and SAC (continuous) agents with Stable-Baselines3
+* 7 LiDAR-style distance sensors, vectorised with NumPy
+* Road-mask collision detection with a 5-point hitbox
+* Checkpoint-gate reward (PPO) and centerline-progress reward (SAC)
+* Centerline extracted automatically from the track image (distance map + Dijkstra)
+* Grip-limited physics so braking and racing lines matter (SAC)
+* Curriculum learning: a lateral-offset penalty that anneals to 0 (SAC)
+* Randomised start positions along the track (SAC)
+* Lap timing, best flying lap, average speed and crash-rate metrics
+* GIF recording of a flying lap with the driven racing line drawn on the track
+* Parallel environments, best-model and checkpoint saving, optional TensorBoard
 
 ---
 
@@ -37,200 +62,139 @@ The project contains two approaches, each in its own folder:
 deep-rl-track-navigation/
 │
 ├── assets/
-│   ├── circuit.png            # Racing track image
-│   └── car.png                # Car sprite
+│   ├── circuit.png               # Racing track image
+│   ├── car.png                   # Car sprite
+│   ├── ppo_lap.gif               # Recorded flying lap, PPO
+│   └── sac_lap.gif               # Recorded flying lap, SAC
 │
 ├── ppo_checkpoints/
-│   ├── race_circuit.py        # Track, road mask, vehicle physics, sensors, manual drive
-│   ├── car_env.py             # Gymnasium racing environment
-│   ├── train.py               # PPO training script
-│   ├── evaluate.py            # Watch a trained agent drive
-│   ├── README.md
-│   ├── models/                # Trained models (generated, git-ignored)
-│   └── logs/                  # Eval results / TensorBoard (generated, git-ignored)
+│   ├── race_circuit.py           # Track, road mask, car physics, sensors, manual drive (shared)
+│   ├── car_env.py                # Gymnasium env: discrete actions, checkpoint gates
+│   ├── train.py                  # PPO training
+│   ├── evaluate.py               # Watch / measure / record a PPO agent
+│   ├── evaluation.py             # Lap metrics and GIF recording (shared)
+│   └── README.md
 │
 ├── sac_centerline/
-│   └── README.md              # Planned SAC + centerline approach
+│   ├── centerline.py             # Builds centerline.csv from the road mask
+│   ├── centerline.csv            # Generated centerline (x, y, half-width)
+│   ├── centerline_preview.png
+│   ├── track.py                  # Centerline projection, arc length, curvature
+│   ├── sac_env.py                # Gymnasium env: continuous actions, grip-limited physics
+│   ├── train.py                  # SAC training with the offset curriculum
+│   ├── evaluate.py               # Watch / measure / record a SAC agent
+│   └── README.md
 │
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ```
 
----
-
-## Environment Description
-
-The racing environment is implemented as a custom Gymnasium environment (`ppo_checkpoints/car_env.py`).
-
-### Observation Space
-
-The agent receives a 10-dimensional observation vector:
-
-| Index | Value | Range |
-| ----- | ----- | ----- |
-| 0-6   | LiDAR distances to the track edge | 0 to 1 |
-| 7     | Speed / max speed | -0.5 to 1 |
-| 8     | sin(angle to next checkpoint) | -1 to 1 |
-| 9     | cos(angle to next checkpoint) | -1 to 1 |
-
-Sensor angles relative to vehicle heading:
-
-| Sensor | Angle |
-| ------ | ----- |
-| 1      | -90°  |
-| 2      | -60°  |
-| 3      | -30°  |
-| 4      | 0°    |
-| 5      | +30°  |
-| 6      | +60°  |
-| 7      | +90°  |
-
-Maximum sensor range:
-
-```text
-250 pixels
-```
-
-Normalized range:
-
-```text
-0.0 → Track edge very close
-1.0 → No edge detected within range
-```
+Each folder writes its trained models to `models/` and logs to `logs/`, both git-ignored.
 
 ---
 
-## Action Space
+## Shared Track and Sensors
 
-The environment uses a discrete action space of size 5.
-
-| Action ID | Action                |
-| --------- | --------------------- |
-| 0         | Turn Left             |
-| 1         | Turn Right            |
-| 2         | Accelerate            |
-| 3         | Brake / Reverse       |
-| 4         | Coast (friction only) |
-
----
-
-## Vehicle Physics
-
-The car follows simple physics-based motion.
-
-### Parameters
-
-| Parameter      | Value |
-| -------------- | ----- |
-| Maximum Speed  | 6     |
-| Acceleration   | 0.2   |
-| Rotation Speed | 5°    |
-| Friction       | 0.98  |
-
-### Dynamics
-
-* Forward acceleration
-* Reverse movement (up to half of max speed)
-* Steering only while moving
-* Natural deceleration due to friction
-* Continuous heading updates
-
----
-
-## Sensor System
-
-The vehicle uses ray-casting sensors similar to LiDAR.
-
-Each step:
-
-1. 7 rays are projected from the vehicle center.
-2. Rays extend up to 250 pixels, sampled every 3 pixels.
-3. A ray stops at the first point that is off the road mask or off screen.
-4. Distances are normalized to [0, 1].
-
-All rays are computed at once with NumPy against a precomputed road mask, which is much faster than reading screen pixels one at a time.
-
-This allows the PPO agent to understand its surroundings without directly observing images.
-
----
-
-## Reward Function
-
-| Term | Reward |
-| ---- | ------ |
-| Progress toward the next checkpoint | +0.1 per pixel closed (negative when moving away) |
-| Passing the next checkpoint in order | +10 |
-| Completing a lap | +50 |
-| Time penalty (every step) | -0.05 |
-| Leaving the track | -100 (episode ends) |
-
-The circuit has 17 sequential checkpoint gates that guide the agent around the track. Gate 0 is the start/finish line, so crossing it after the others completes a lap.
-
-Because the progress reward is the change in distance to the next gate, driving away from it, circling, or oscillating earns nothing. Only real progress around the track pays off.
-
----
-
-## Episode Termination
-
-### Collision (terminated)
-
-Any hitbox point leaves the road: grass, sand, kerbs, barriers, or the screen edge.
-
-### Truncation
-
-* 3000 simulation steps reached
-* 300 steps without passing a checkpoint (stuck or stalling)
-
----
-
-## Collision Detection
+### Road mask and collisions
 
 A boolean **road mask** is built once when the track loads:
 
-* Asphalt is the only dark, low-saturation grey on the track image.
+* Asphalt is the only dark, low-saturation grey in the track image.
 * Only the grey region connected to the start line is kept, which removes building outlines and other false positives.
 
-The car is checked at **5 hitbox points** (four corners plus the center), so the car's body can't clip through the track edge.
+The car crashes when any of **5 hitbox points** (four corners plus the centre) leaves the road: grass, sand, kerbs, barriers or the screen edge.
+
+### LiDAR sensors
+
+7 rays at -90°, -60°, -30°, 0°, +30°, +60° and +90° from the car's heading, each up to 250 px long and sampled every 3 px. A ray stops at the first point off the road mask. Distances are normalised to 0-1, where 0 means the edge is right next to the car and 1 means no edge within range. All 7 rays are computed at once with NumPy.
+
+### Lap timing
+
+The simulation runs at 60 steps per second, so lap times are given in simulated seconds. Lap 1 includes the standing start, so the headline number is the **best flying lap**.
 
 ---
 
-## PPO Training
+## PPO + Checkpoint Gates
 
-Training uses Stable-Baselines3 PPO with parallel environments.
+* **Observation (10):** 7 LiDAR distances, speed, and sin/cos of the angle to the next gate.
+* **Actions (9):** every combination of steer {left, straight, right} × throttle {accelerate, coast, brake}.
+* **Reward:** +0.1 per pixel closed toward the next gate, +10 per gate, +50 per lap, -0.05 per step, -100 for leaving the road. Driving away from the gate, circling or oscillating earns nothing.
+* **Episode end:** crash, 3000 steps, or 300 steps without passing a gate.
+* **Training:** 8 parallel envs, 1.5M steps, `[128, 128]` MLP, lr 3e-4, n_steps 1024, batch 256, entropy 0.01. Runs on the CPU.
 
-### Configuration
+Earlier versions used 5 single actions (left, right, accelerate, brake, coast). Allowing combined actions let the car steer and accelerate together, which made its laps faster (see Results).
 
-```python
-model = PPO(
-    "MlpPolicy",
-    env,                      # 8 parallel environments (SubprocVecEnv)
-    learning_rate=3e-4,
-    n_steps=1024,
-    batch_size=256,
-    gamma=0.99,
-    ent_coef=0.01,
-    policy_kwargs={"net_arch": [128, 128]},
-)
+Details: [ppo_checkpoints/README.md](ppo_checkpoints/README.md)
+
+---
+
+## SAC + Centerline Progress
+
+* **Centerline:** extracted from the road mask with a distance-to-edge map and Dijkstra between the checkpoint gates. The lap is 3736 px long.
+* **Physics:** a grip limit, `speed × turn rate ≤ 0.4`. The faster the car goes, the wider its tightest turn, so it has to brake for hairpins or take a wider line.
+* **Observation (19):** 7 LiDAR distances, speed, heading error to the track tangent, lateral offset, curvature at 6 points up to 300 px ahead, and the previous action.
+* **Actions:** continuous steer and throttle, each in [-1, 1].
+* **Reward:** +0.1 per pixel of progress along the centerline, -0.01 per step, -0.05 × |steering change|, -c1 × (offset / half-width)², -50 for leaving the road.
+* **Curriculum:** c1 starts at 0.3 and anneals to 0 over the first half of training. The agent first learns to stay central, then is free to find its own racing line.
+* **Random starts:** training episodes begin at random points around the track.
+* **Training:** 4 parallel envs, 500k steps, `[256, 256]` networks, batch 512, GPU if available.
+
+Details: [sac_centerline/README.md](sac_centerline/README.md)
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/AshutoshP29/deep-rl-track-navigation.git
+cd deep-rl-track-navigation
+
+python -m venv venv
+venv\Scripts\activate        # Windows (source venv/bin/activate on macOS/Linux)
+pip install -r requirements.txt
 ```
 
-### Training Command
+`requirements.txt` installs the CPU build of PyTorch. To train SAC on an NVIDIA GPU, install the CUDA build afterwards, for example:
+
+```bash
+pip install --force-reinstall --no-deps torch==2.12.0 --index-url https://download.pytorch.org/whl/cu130
+```
+
+For a network this small, the GPU mainly frees up the CPU. PPO always trains on the CPU.
+
+---
+
+## Usage
+
+### Drive it yourself
 
 ```bash
 cd ppo_checkpoints
-python train.py                                   # defaults: 1M steps, 8 envs
-python train.py --timesteps 2000000 --n-envs 8 --seed 0
+python race_circuit.py       # arrow keys: ↑ accelerate, ↓ brake, ← → steer
 ```
 
-### Model Saving
+### PPO
 
-| File | Description |
-| ---- | ----------- |
-| `models/best_model.zip` | Best policy found by periodic evaluation |
-| `models/ppo_racing_final.zip` | Policy at the end of training |
-| `models/checkpoints/` | Snapshot every 100k steps |
+```bash
+cd ppo_checkpoints
+python train.py                          # 1.5M steps, 8 envs
+python evaluate.py                       # watch the best model
+python evaluate.py --episodes 1          # lap times and metrics, headless
+python evaluate.py --gif ../assets/ppo_lap.gif
+```
 
-Optional TensorBoard logging (if `tensorboard` is installed):
+### SAC
+
+```bash
+cd sac_centerline
+python train.py                          # 500k steps
+python evaluate.py                       # watch the best model
+python evaluate.py --episodes 1 --random-starts 50
+python evaluate.py --gif ../assets/sac_lap.gif
+```
+
+Optional TensorBoard logging, if `tensorboard` is installed:
 
 ```bash
 tensorboard --logdir logs/tensorboard
@@ -238,78 +202,19 @@ tensorboard --logdir logs/tensorboard
 
 ---
 
-## Installation
-
-### Clone Repository
-
-```bash
-git clone https://github.com/AshutoshP29/deep-rl-track-navigation.git
-
-cd deep-rl-track-navigation
-```
-
-### Install Dependencies
-
-```bash
-python -m venv venv
-venv\Scripts\activate        # Windows (source venv/bin/activate on macOS/Linux)
-pip install -r requirements.txt
-```
-
----
-
-## Running the Environment
-
-To drive the car yourself:
-
-```bash
-cd ppo_checkpoints
-python race_circuit.py
-```
-
-Controls:
-
-| Key | Action     |
-| --- | ---------- |
-| ↑   | Accelerate |
-| ↓   | Brake      |
-| ←   | Turn Left  |
-| →   | Turn Right |
-
-To watch random actions in the environment:
-
-```bash
-python car_env.py
-```
-
----
-
-## Training and Evaluating the Agent
-
-```bash
-cd ppo_checkpoints
-python train.py       # train
-python evaluate.py    # watch the best model drive
-python evaluate.py --model models/ppo_racing_final.zip
-```
-
-The evaluation script prints each episode's outcome, laps, checkpoints passed, and total reward.
-
----
-
 ## Future Improvements
 
-* ✅ ~~Faster training using vectorized environments~~
+* ✅ ~~Faster training using vectorised environments~~
 * ✅ ~~Improved reward shaping~~
-* 🚧 SAC with continuous steering and throttle (`sac_centerline/`)
-* 🚧 Centerline-progress reward with an optional lateral-offset penalty
-* 🚧 Grip-limited physics so the agent can learn real racing lines
-* Combined steer + throttle actions for PPO
-* Curriculum learning
-* Randomized start positions
-* Track randomization and multiple racing circuits
+* ✅ ~~SAC with continuous steering and throttle~~
+* ✅ ~~Centerline-progress reward with an annealed lateral-offset penalty (curriculum)~~
+* ✅ ~~Grip-limited physics so the agent can learn racing lines~~
+* ✅ ~~Combined steer + throttle actions for PPO~~
+* ✅ ~~Randomised start positions (SAC)~~
+* ✅ ~~Lap timing and performance metrics~~
+* Track randomisation and multiple racing circuits
 * Camera-based observations using CNN policies
-* Lap timing and performance metrics
+* Grip-limited physics for PPO too, for a like-for-like algorithm comparison
 
 ---
 
@@ -317,25 +222,11 @@ The evaluation script prints each episode's outcome, laps, checkpoints passed, a
 
 * Python
 * Gymnasium
-* Stable-Baselines3
-* PPO (Proximal Policy Optimization)
+* Stable-Baselines3 (PPO, SAC)
 * PyTorch
 * NumPy
 * Pygame
-
----
-
-## Results
-
-The trained PPO agent learns to:
-
-* Stay on the road
-* Avoid collisions
-* Navigate through checkpoints in order
-* Maintain forward speed
-* Complete laps of the circuit autonomously
-
-Performance can be further improved by increasing training timesteps and tuning PPO hyperparameters.
+* Pillow (GIF recording)
 
 ---
 
